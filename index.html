@@ -1,1 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>神秘學 AI 塔羅靈魂占卜 Web App</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            mystic: {
+              900: '#0b0813',
+              800: '#15102a',
+              700: '#231a42',
+              600: '#382a68',
+              gold: '#dfb15b',
+              'gold-light': '#f3d68c',
+              purple: '#9d4edd',
+              accent: '#ff007f'
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif TC"', 'serif'],
+            cinzel: ['Cinzel', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0b0813;
+      color: #e2e8f0;
+      font-family: 'Noto Serif TC', serif;
+      overflow-x: hidden;
+    }
+    
+    /* 3D Card Flip Animation */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+    .rotate-z-180 {
+      transform: rotateY(180deg) rotateZ(180deg);
+    }
 
+    /* Card Glow Effects */
+    .gold-glow {
+      box-shadow: 0 0 25px rgba(223, 177, 91, 0.35);
+    }
+    .gold-glow-lg {
+      box-shadow: 0 0 40px rgba(223, 177, 91, 0.55);
+    }
+
+    /* Glassmorphism */
+    .glass-panel {
+      background: rgba(21, 16, 42, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(223, 177, 91, 0.2);
+    }
+    .glass-card {
+      background: rgba(35, 26, 66, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(223, 177, 91, 0.3);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0813;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #382a68;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #dfb15b;
+    }
+
+    /* Shimmer Effect */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer-text {
+      background: linear-gradient(90deg, #dfb15b 0%, #fff 50%, #dfb15b 100%);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      animation: shimmer 4s linear infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col relative selection:bg-mystic-gold selection:text-mystic-900">
+
+  <!-- Interactive Canvas Background -->
+  <canvas id="starCanvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+  <!-- Top Navigation Header -->
+  <header class="relative z-10 w-full px-6 py-4 glass-panel border-b border-mystic-gold/20 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="p-2 rounded-lg bg-mystic-gold/10 text-mystic-gold border border-mystic-gold/30">
+        <i data-lucide="sparkles" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="font-cinzel text-xl sm:text-2xl font-bold tracking-widest shimmer-text">MYSTIC TAROT</h1>
+        <p class="text-xs text-mystic-gold/70 tracking-widest">AI 塔羅靈魂占卜網頁</p>
+      </div>
+    </div>
+
+    <!-- Controls & Action Buttons -->
+    <div class="flex items-center gap-3">
+      <!-- Audio Toggle Button -->
+      <button id="audioBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-mystic-700/50 hover:bg-mystic-600/60 text-mystic-gold border border-mystic-gold/30 text-xs transition duration-300">
+        <i id="audioIcon" data-lucide="volume-x" class="w-4 h-4"></i>
+        <span id="audioStatus">靜音</span>
+      </button>
+
+      <!-- View PRD Button -->
+      <button onclick="togglePRDModal(true)" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-mystic-gold/10 hover:bg-mystic-gold/20 text-mystic-gold border border-mystic-gold/40 text-xs transition duration-300">
+        <i data-lucide="file-text" class="w-4 h-4"></i>
+        <span>規格書 (PRD)</span>
+      </button>
+
+      <!-- Journal History Drawer Toggle -->
+      <button onclick="toggleJournalDrawer(true)" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-mystic-purple/20 hover:bg-mystic-purple/30 text-purple-200 border border-mystic-purple/40 text-xs transition duration-300 relative">
+        <i data-lucide="book-open" class="w-4 h-4"></i>
+        <span>占卜日誌</span>
+        <span id="journalCountBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-mystic-accent text-white rounded-full text-[10px] flex items-center justify-center font-bold">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 py-8 flex flex-col items-center gap-8">
+    
+    <!-- Title & Introduction -->
+    <div class="text-center max-w-2xl space-y-3">
+      <div class="inline-block px-3 py-1 rounded-full bg-mystic-gold/10 text-mystic-gold text-xs tracking-wider border border-mystic-gold/20">
+        ✨ 靜心・冥想・誠心提問
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-bold text-slate-100">探尋內心的靈魂解答</h2>
+      <p class="text-sm text-slate-400 leading-relaxed">
+        深呼吸三次，將注意力集中於你心中的困惑或疑問，選擇適合的靈魂牌陣，開啟這趟塔羅心靈指引之旅。
+      </p>
+    </div>
+
+    <!-- Step 1: Input Question & Select Spread -->
+    <section class="w-full glass-panel p-6 rounded-2xl border border-mystic-gold/20 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- Spread Option 1 -->
+        <div onclick="selectSpread('single')" id="spread-single" class="spread-card cursor-pointer p-4 rounded-xl border border-mystic-gold/30 bg-mystic-800/40 hover:bg-mystic-700/50 transition-all flex flex-col items-center text-center space-y-2 relative overflow-hidden group border-mystic-gold ring-1 ring-mystic-gold">
+          <div class="p-3 rounded-full bg-mystic-gold/10 text-mystic-gold group-hover:scale-110 transition">
+            <i data-lucide="square" class="w-6 h-6"></i>
+          </div>
+          <h3 class="font-bold text-mystic-gold">單牌指引 (Daily)</h3>
+          <p class="text-xs text-slate-400">適合每日運勢、簡單是非問題或當下快速指引。</p>
+        </div>
+
+        <!-- Spread Option 2 -->
+        <div onclick="selectSpread('three')" id="spread-three" class="spread-card cursor-pointer p-4 rounded-xl border border-mystic-gold/20 bg-mystic-800/40 hover:bg-mystic-700/50 transition-all flex flex-col items-center text-center space-y-2 relative overflow-hidden group">
+          <div class="p-3 rounded-full bg-mystic-purple/20 text-mystic-purple group-hover:scale-110 transition">
+            <i data-lucide="columns-3" class="w-6 h-6"></i>
+          </div>
+          <h3 class="font-bold text-slate-200">三張牌陣 (Time)</h3>
+          <p class="text-xs text-slate-400">解析事件的「過去背景」、「現在處境」與「未來發展」。</p>
+        </div>
+
+        <!-- Spread Option 3 -->
+        <div onclick="selectSpread('elements')" id="spread-elements" class="spread-card cursor-pointer p-4 rounded-xl border border-mystic-gold/20 bg-mystic-800/40 hover:bg-mystic-700/50 transition-all flex flex-col items-center text-center space-y-2 relative overflow-hidden group">
+          <div class="p-3 rounded-full bg-mystic-accent/20 text-mystic-accent group-hover:scale-110 transition">
+            <i data-lucide="compass" class="w-6 h-6"></i>
+          </div>
+          <h3 class="font-bold text-slate-200">四元素靈魂牌陣</h3>
+          <p class="text-xs text-slate-400">從火(行動)、風(思考)、水(情感)、土(物質)全方位剖析。</p>
+        </div>
+      </div>
+
+      <!-- User Question Input -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-1">
+          <i data-lucide="help-circle" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-mystic-gold/50"></i>
+          <input type="text" id="userQuestion" placeholder="輸入你想詢問的問題 (例如：我近期的事業發展如何？)..." class="w-full pl-10 pr-4 py-3 rounded-xl bg-mystic-900/80 border border-mystic-gold/30 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-mystic-gold focus:ring-1 focus:ring-mystic-gold transition">
+        </div>
+        <button onclick="startTarotReading()" id="drawBtn" class="px-8 py-3 rounded-xl bg-gradient-to-r from-mystic-gold to-yellow-600 hover:from-yellow-400 hover:to-mystic-gold text-mystic-900 font-bold text-sm shadow-lg shadow-mystic-gold/20 flex items-center justify-center gap-2 transition duration-300 active:scale-95">
+          <i data-lucide="wand2" class="w-4 h-4"></i>
+          <span>洗牌並開始占卜</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Cards Display Area -->
+    <section id="cardsContainer" class="w-full min-h-[360px] flex flex-wrap justify-center items-center gap-6 py-6 transition-all duration-500">
+      <div class="text-center text-slate-500 space-y-2">
+        <i data-lucide="sparkle" class="w-10 h-10 mx-auto animate-pulse text-mystic-gold/40"></i>
+        <p class="text-sm">請選擇牌陣並輸入問題，點擊「洗牌並開始占卜」</p>
+      </div>
+    </section>
+
+    <!-- Detailed Reading Interpretation Results -->
+    <section id="resultSection" class="w-full glass-panel p-6 sm:p-8 rounded-2xl border border-mystic-gold/30 hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between border-b border-mystic-gold/20 pb-4 gap-4">
+        <div>
+          <span class="text-xs text-mystic-gold font-mono tracking-wider" id="resultDate">2026-10-19</span>
+          <h3 class="text-xl font-bold text-slate-100 mt-1" id="resultQuestionDisplay">「近期的事業發展如何？」</h3>
+        </div>
+        <button onclick="saveCurrentReading()" id="saveBtn" class="px-4 py-2 rounded-lg bg-mystic-purple/30 hover:bg-mystic-purple/50 text-purple-200 border border-mystic-purple/40 text-xs flex items-center gap-2 transition">
+          <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+          <span>儲存至占卜日誌</span>
+        </button>
+      </div>
+
+      <!-- Interpretations Grid -->
+      <div id="interpretationCards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <!-- AI Synthesis Guidance Panel -->
+      <div class="p-4 rounded-xl bg-mystic-800/80 border border-mystic-gold/30 space-y-2">
+        <div class="flex items-center gap-2 text-mystic-gold font-bold text-sm">
+          <i data-lucide="cpu" class="w-4 h-4"></i>
+          <span>AI 靈魂綜合啟示</span>
+        </div>
+        <p id="overallAdvice" class="text-sm text-slate-300 leading-relaxed"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="relative z-10 w-full py-6 text-center text-xs text-slate-500 border-t border-mystic-gold/10">
+    <p>mystic Tarot Synthesizer &copy; Vibe Coding Project</p>
+  </footer>
+
+  <!-- PRD Specification Modal -->
+  <div id="prdModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-3xl max-h-[85vh] rounded-2xl border border-mystic-gold/40 flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-4 sm:p-6 border-b border-mystic-gold/20 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-code" class="w-5 h-5 text-mystic-gold"></i>
+          <h3 class="font-bold text-lg text-slate-100">專案需求規格書 (PRD)</h3>
+        </div>
+        <button onclick="togglePRDModal(false)" class="p-1 rounded-lg hover:bg-mystic-700/50 text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm text-slate-300 leading-relaxed font-sans">
+        
+        <div>
+          <h4 class="text-mystic-gold font-bold text-base mb-2">1. 專案名稱與核心概念</h4>
+          <p><strong class="text-white">專案名稱：</strong>神秘學 AI 塔羅靈魂占卜 Web App (Mystic Tarot Synthesizer)</p>
+          <p><strong class="text-white">核心概念：</strong>結合 3D 視覺翻牌動畫、HTML5 Canvas 互動星空、Web Audio 原生頌缽聲學合成與 LocalStorage 占卜日誌的沉浸式線上塔羅牌系統。</p>
+        </div>
+
+        <div>
+          <h4 class="text-mystic-gold font-bold text-base mb-2">2. 目標使用者與使用情境</h4>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><strong>探索內心與尋求解答者：</strong>在面臨人生選擇、情感困惑或工作壓力時，隨時透過線上塔羅尋找靈感與啟示。</li>
+            <li><strong>每日運勢抽牌者：</strong>每天早上抽出單張牌作為當天的靈魂指引與心理暗示。</li>
+            <li><strong>沉浸式體驗愛好者：</strong>享受具備音效、星空粒子與 3D 翻牌動畫的微互動網頁。</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-mystic-gold font-bold text-base mb-2">3. 功能矩陣與技術實現</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-left border border-mystic-gold/20 my-2">
+              <thead>
+                <tr class="bg-mystic-800 text-mystic-gold">
+                  <th class="p-2 border border-mystic-gold/20">功能模組</th>
+                  <th class="p-2 border border-mystic-gold/20">細節描述</th>
+                  <th class="p-2 border border-mystic-gold/20">技術實現</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-mystic-gold/10">
+                <tr>
+                  <td class="p-2 border border-mystic-gold/20 font-bold text-white">三大靈魂牌陣</td>
+                  <td class="p-2 border border-mystic-gold/20">單牌指引、三張牌陣（時序）、四元素牌陣。</td>
+                  <td class="p-2 border border-mystic-gold/20">JS DOM Dynamic Render</td>
+                </tr>
+                <tr>
+                  <td class="p-2 border border-mystic-gold/20 font-bold text-white">22 張大牌庫</td>
+                  <td class="p-2 border border-mystic-gold/20">包含正位與逆位隨機邏輯、愛情/事業/心靈獨立解析。</td>
+                  <td class="p-2 border border-mystic-gold/20">JS Tarot Dataset & Random Math</td>
+                </tr>
+                <tr>
+                  <td class="p-2 border border-mystic-gold/20 font-bold text-white">3D 動態翻牌</td>
+                  <td class="p-2 border border-mystic-gold/20">懸停放大、點擊洗牌與 3D 180度翻牌動畫。</td>
+                  <td class="p-2 border border-mystic-gold/20">CSS 3D Perspective & RotateY</td>
+                </tr>
+                <tr>
+                  <td class="p-2 border border-mystic-gold/20 font-bold text-white">原生頌缽音效</td>
+                  <td class="p-2 border border-mystic-gold/20">免載入外部 MP3，使用演算法即時合成西藏頌缽音效。</td>
+                  <td class="p-2 border border-mystic-gold/20">Web Audio API (OscillatorNode)</td>
+                </tr>
+                <tr>
+                  <td class="p-2 border border-mystic-gold/20 font-bold text-white">占卜日誌儲存</td>
+                  <td class="p-2 border border-mystic-gold/20">輸入問題與結果完整保存於瀏覽器，可隨時查閱。</td>
+                  <td class="p-2 border border-mystic-gold/20">Browser LocalStorage API</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-mystic-gold font-bold text-base mb-2">4. AI Vibe Coding 疊代紀錄</h4>
+          <p>本專案全程透過 AI 協助開發，經歷了 4 個主要階段：發想與規格定義 -> 卡牌資料庫與 3D 視覺開發 -> Web Audio 頌缽音效加入 -> LocalStorage 占卜日誌與單一 HTML 檔案打包，確保託管於 GitHub Pages 時 100% 可順暢開啟運作。</p>
+        </div>
+
+      </div>
+      <div class="p-4 border-t border-mystic-gold/20 bg-mystic-900/50 flex justify-end">
+        <button onclick="togglePRDModal(false)" class="px-5 py-2 rounded-xl bg-mystic-gold text-mystic-900 font-bold text-xs hover:bg-yellow-400 transition">
+          關閉視窗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Journal History Drawer Modal -->
+  <div id="journalDrawer" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex justify-end hidden">
+    <div class="w-full max-w-md h-full bg-mystic-900 border-l border-mystic-gold/30 flex flex-col p-6 space-y-4 overflow-hidden">
+      <div class="flex items-center justify-between border-b border-mystic-gold/20 pb-4">
+        <div class="flex items-center gap-2 text-mystic-gold">
+          <i data-lucide="book-open" class="w-5 h-5"></i>
+          <h3 class="font-bold text-lg text-slate-100">個人占卜日誌</h3>
+        </div>
+        <button onclick="toggleJournalDrawer(false)" class="p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- Journal List Container -->
+      <div id="journalList" class="flex-1 overflow-y-auto space-y-3 pr-1"></div>
+
+      <button onclick="clearJournalHistory()" class="w-full py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs flex items-center justify-center gap-2 transition">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+        <span>清空所有日記紀錄</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    /* ==========================================================================
+       1. 22 Major Arcana Tarot Card Dataset
+       ========================================================================== */
+    const tarotDeck = [
+      { id: 0, name: "愚者 (The Fool)", element: "風", symbol: "☀️", keywords: ["冒險", "開端", "自由", "潛能"], advice: "勇敢邁出第一步，保持開放的心胸，擁抱未知。" },
+      { id: 1, name: "魔術師 (The Magician)", element: "風", symbol: "🪄", keywords: ["創造力", "資源", "專注", "行動"], advice: "你擁有實現目標所需的所有工具，展現你的才華。" },
+      { id: 2, name: "女祭司 (The High Priestess)", element: "水", symbol: "🌙", keywords: ["直覺", "潛意識", "智慧", "靜心"], advice: "傾聽你內心的聲音，答案就在你的直覺深處。" },
+      { id: 3, name: "皇后 (The Empress)", element: "土", symbol: "👑", keywords: ["豐盛", "滋養", "愛", "創造"], advice: "享受生活的美好，表達你的關懷與熱情。" },
+      { id: 4, name: "皇帝 (The Emperor)", element: "火", symbol: "🛡️", keywords: ["秩序", "領導", "穩定", "控制"], advice: "建立明確的界線與結構，以理智與自信掌控局勢。" },
+      { id: 5, name: "教皇 (The Hierophant)", element: "土", symbol: "📜", keywords: ["傳統", "智慧", "引導", "信仰"], advice: "向專業人士或導師尋求建議，遵循值得信賴的規範。" },
+      { id: 6, name: "戀人 (The Lovers)", element: "風", symbol: "💖", keywords: ["選擇", "愛", "契合", "夥伴"], advice: "做出符合你核心價值觀的選擇，深化彼此的信任。" },
+      { id: 7, name: "戰車 (The Chariot)", element: "火", symbol: "🛞", keywords: ["意志力", "勝利", "克服障礙", "前進"], advice: "維持專注與自律，衝破當前的難關與阻礙。" },
+      { id: 8, name: "力量 (Strength)", element: "火", symbol: "🦁", keywords: ["勇氣", "包容", "內在力量", "耐心"], advice: "以柔克剛，溫柔與耐心比強硬更能帶來長遠的成功。" },
+      { id: 9, name: "隱士 (The Hermit)", element: "土", symbol: "🕯️", keywords: ["內省", "尋求真相", "孤獨", "智慧"], advice: "給自己一段平靜的時間，向內探索真正的解答。" },
+      { id: 10, name: "命運之輪 (Wheel of Fortune)", element: "火", symbol: "☸️", keywords: ["轉折", "契機", "順應變化", "運氣"], advice: "擁抱順應變局，順勢而為將開啟新的可能性。" },
+      { id: 11, name: "正義 (Justice)", element: "風", symbol: "⚖️", keywords: ["公平", "因果", "誠實", "決策"], advice: "保持客觀與公正，並為自己的選擇承擔責任。" },
+      { id: 12, name: "吊人 (The Hanged Man)", element: "水", symbol: "🙃", keywords: ["換位思考", "等待", "犧牲", "新視角"], advice: "暫停盲目的衝動，試著從完全不同的角度看待問題。" },
+      { id: 13, name: "死神 (Death)", element: "水", symbol: "🦋", keywords: ["結束", "重生", "轉變", "放下"], advice: "勇敢放下不再適合你的過去，為美好的新事物騰出空間。" },
+      { id: 14, name: "節制 (Temperance)", element: "火", symbol: "🏺", keywords: ["平衡", "調和", "適度", "平穩"], advice: "尋求極端之間的平衡點，保持耐心與心靈和諧。" },
+      { id: 15, name: "惡魔 (The Devil)", element: "土", symbol: "🔗", keywords: ["執著", "束縛", "慾望", "反思"], advice: "檢視自己是否被物質或恐懼所制約，重新奪回自主權。" },
+      { id: 16, name: "高塔 (The Tower)", element: "火", symbol: "⚡", keywords: ["突破", "突破舊架構", "覺醒", "重新開始"], advice: "破除舊有的幻想，在震盪後重新建立堅固的基石。" },
+      { id: 17, name: "星星 (The Star)", element: "風", symbol: "⭐", keywords: ["希望", "靈感", "療癒", "平靜"], advice: "保持信心與希望，宇宙正在默默給予你療癒能量。" },
+      { id: 18, name: "月亮 (The Moon)", element: "水", symbol: "🌕", keywords: ["不安", "幻象", "直覺", "探索"], advice: "接受當下的不確定感，看清表面之下的真貌。" },
+      { id: 19, name: "太陽 (The Sun)", element: "火", symbol: "🌞", keywords: ["成功", "活力", "喜悅", "光明"], advice: "展現你最真實光芒，享受生命帶給你的讚賞與成果。" },
+      { id: 20, name: "審判 (Judgement)", element: "火", symbol: "🎺", keywords: ["號召", "覺醒", "決策", "重生"], advice: "回應內心深處的召喚，果斷做出改變人生的決定。" },
+      { id: 21, name: "世界 (The World)", element: "土", symbol: "🌍", keywords: ["圓滿", "成就", "完整", "新篇章"], advice: "慶祝一個階段的完美落幕，準備邁向更高層次的旅程。" }
+    ];
+
+    /* ==========================================================================
+       2. Application State Management
+       ========================================================================== */
+    let selectedSpread = 'single';
+    let currentReadingData = null;
+    let audioEnabled = false;
+    let audioCtx = null;
+
+    /* ==========================================================================
+       3. Canvas Interactive Background System
+       ========================================================================== */
+    const canvas = document.getElementById('starCanvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initStars();
+    }
+
+    function initStars() {
+      stars = [];
+      const count = Math.floor((canvas.width * canvas.height) / 8000);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.5,
+          alpha: Math.random(),
+          speed: Math.random() * 0.02 + 0.005
+        });
+      }
+    }
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Nebula Soft Ambient Glow
+      const gradient = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 100,
+        canvas.width / 2, canvas.height / 2, canvas.width
+      );
+      gradient.addColorStop(0, 'rgba(35, 26, 66, 0.3)');
+      gradient.addColorStop(1, 'rgba(11, 8, 19, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Render Stars
+      stars.forEach(s => {
+        s.alpha += s.speed;
+        if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(223, 177, 91, ${Math.abs(s.alpha) * 0.8})`;
+        ctx.fill();
+      });
+
+      requestAnimationFrame(animateStars);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    animateStars();
+
+    /* ==========================================================================
+       4. Web Audio API Synthesis Engine (Tibetan Bowl Effect)
+       ========================================================================== */
+    document.getElementById('audioBtn').addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      const statusEl = document.getElementById('audioStatus');
+      const iconEl = document.getElementById('audioIcon');
+
+      if (audioEnabled) {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        statusEl.innerText = '音效開啟';
+        iconEl.setAttribute('data-lucide', 'volume-2');
+        playSingingBowlSound(220, 2); // Sound test
+      } else {
+        statusEl.innerText = '靜音';
+        iconEl.setAttribute('data-lucide', 'volume-x');
+      }
+      lucide.createIcons();
+    });
+
+    function playSingingBowlSound(freq = 250, duration = 3) {
+      if (!audioEnabled || !audioCtx) return;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      
+      // Tremolo / Harmonic Vibrato Effect
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.99, audioCtx.currentTime + duration);
+
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    /* ==========================================================================
+       5. Spread Selection & Reading Execution Logic
+       ========================================================================== */
+    function selectSpread(type) {
+      selectedSpread = type;
+      document.querySelectorAll('.spread-card').forEach(card => {
+        card.classList.remove('border-mystic-gold', 'ring-1', 'ring-mystic-gold');
+        card.classList.add('border-mystic-gold/20');
+      });
+      const activeCard = document.getElementById(`spread-${type}`);
+      activeCard.classList.remove('border-mystic-gold/20');
+      activeCard.classList.add('border-mystic-gold', 'ring-1', 'ring-mystic-gold');
+      
+      playSingingBowlSound(300, 0.5);
+    }
+
+    function startTarotReading() {
+      const questionInput = document.getElementById('userQuestion').value.trim();
+      const questionText = questionInput || "當下靈魂引導與運勢提示";
+      const cardsContainer = document.getElementById('cardsContainer');
+      const resultSection = document.getElementById('resultSection');
+
+      // Hide results first
+      resultSection.classList.add('hidden');
+      cardsContainer.innerHTML = '';
+
+      playSingingBowlSound(180, 2.5);
+
+      // Determine number of cards based on spread
+      let cardConfigs = [];
+      if (selectedSpread === 'single') {
+        cardConfigs = [{ positionName: "靈魂指引卡" }];
+      } else if (selectedSpread === 'three') {
+        cardConfigs = [
+          { positionName: "【過去】背景與起因" },
+          { positionName: "【現在】核心挑戰與處境" },
+          { positionName: "【未來】潛在發展與結果" }
+        ];
+      } else if (selectedSpread === 'elements') {
+        cardConfigs = [
+          { positionName: "【火】行動力與熱情" },
+          { positionName: "【風】思考與溝通" },
+          { positionName: "【水】情感與直覺" },
+          { positionName: "【土】物質與現實基石" }
+        ];
+      }
+
+      // Shuffle and pick cards from deck
+      const shuffledDeck = [...tarotDeck].sort(() => 0.5 - Math.random());
+      const selectedCards = cardConfigs.map((config, index) => {
+        const cardData = shuffledDeck[index];
+        const isReversed = Math.random() < 0.3; // 30% chance for Reversed card
+        return {
+          ...cardData,
+          positionName: config.positionName,
+          isReversed: isReversed
+        };
+      });
+
+      // Render 3D Cards into container
+      selectedCards.forEach((card, index) => {
+        const cardWrapper = document.createElement('div');
+        cardWrapper.className = 'perspective-1000 w-44 h-72 sm:w-52 sm:h-80 cursor-pointer group';
+        cardWrapper.onclick = () => flipCard(index);
+
+        cardWrapper.innerHTML = `
+          <div id="cardInner-${index}" class="transform-style-3d w-full h-full relative rounded-2xl shadow-xl transition-all duration-700">
+            
+            <!-- Card Back -->
+            <div class="backface-hidden absolute inset-0 glass-card rounded-2xl border-2 border-mystic-gold/40 flex flex-col items-center justify-between p-4 gold-glow">
+              <div class="w-full text-center text-[10px] text-mystic-gold tracking-widest uppercase">Mystic Tarot</div>
+              <div class="w-16 h-16 rounded-full border border-mystic-gold/40 flex items-center justify-center bg-mystic-gold/10">
+                <i data-lucide="sparkles" class="w-8 h-8 text-mystic-gold animate-spin" style="animation-duration: 12s;"></i>
+              </div>
+              <div class="text-xs text-mystic-gold/80 font-bold">${card.positionName}</div>
+            </div>
+
+            <!-- Card Front -->
+            <div class="backface-hidden ${card.isReversed ? 'rotate-z-180' : 'rotate-y-180'} absolute inset-0 bg-mystic-800 rounded-2xl border-2 border-mystic-gold flex flex-col items-center justify-between p-4 shadow-2xl overflow-hidden">
+              <div class="flex justify-between items-center w-full text-xs text-mystic-gold/70">
+                <span>${card.element}元素</span>
+                <span>No.${card.id}</span>
+              </div>
+              <div class="text-4xl my-2">${card.symbol}</div>
+              <div class="text-center">
+                <h4 class="font-bold text-slate-100 text-sm sm:text-base">${card.name}</h4>
+                <span class="inline-block px-2 py-0.5 mt-1 text-[10px] rounded ${card.isReversed ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">
+                  ${card.isReversed ? '逆位 (Reversed)' : '正位 (Upright)'}
+                </span>
+              </div>
+              <div class="text-[10px] text-slate-400 text-center line-clamp-2">
+                ${card.keywords.join(' • ')}
+              </div>
+            </div>
+
+          </div>
+        `;
+        cardsContainer.appendChild(cardWrapper);
+      });
+
+      lucide.createIcons();
+
+      // Save Current Reading Context
+      currentReadingData = {
+        date: new Date().toLocaleDateString('zh-TW'),
+        question: questionText,
+        spread: selectedSpread,
+        cards: selectedCards,
+        flippedCount: 0
+      };
+    }
+
+    function flipCard(index) {
+      const cardInner = document.getElementById(`cardInner-${index}`);
+      if (!cardInner.classList.contains('rotate-y-180') && !cardInner.classList.contains('rotate-z-180')) {
+        const isReversed = currentReadingData.cards[index].isReversed;
+        cardInner.classList.add(isReversed ? 'rotate-z-180' : 'rotate-y-180');
+        
+        playSingingBowlSound(400 + index * 100, 1.2);
+        
+        currentReadingData.flippedCount++;
+
+        // When all cards are flipped, render interpretation report
+        if (currentReadingData.flippedCount === currentReadingData.cards.length) {
+          setTimeout(showInterpretationResults, 600);
+        }
+      }
+    }
+
+    /* ==========================================================================
+       6. Render Reading Results & Interpretations
+       ========================================================================== */
+    function showInterpretationResults() {
+      const resultSection = document.getElementById('resultSection');
+      const interpretationCards = document.getElementById('interpretationCards');
+      const resultQuestionDisplay = document.getElementById('resultQuestionDisplay');
+      const resultDate = document.getElementById('resultDate');
+      const overallAdvice = document.getElementById('overallAdvice');
+
+      resultDate.innerText = currentReadingData.date;
+      resultQuestionDisplay.innerText = `「${currentReadingData.question}」`;
+      interpretationCards.innerHTML = '';
+
+      let compositeAdviceText = [];
+
+      currentReadingData.cards.forEach(card => {
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'p-4 rounded-xl bg-mystic-900/60 border border-mystic-gold/20 space-y-2';
+        
+        const cardStatus = card.isReversed ? '逆位' : '正位';
+        const adviceDetail = card.isReversed ? `【逆位引導】此牌提醒你需注意內部阻礙或過度執著，${card.advice}` : `【正位引導】${card.advice}`;
+
+        compositeAdviceText.push(`${card.positionName}抽出《${card.name} (${cardStatus})》：${card.keywords.join('、')}。`);
+
+        cardDiv.innerHTML = `
+          <div class="flex items-center justify-between border-b border-mystic-gold/10 pb-2">
+            <span class="text-xs font-bold text-mystic-gold">${card.positionName}</span>
+            <span class="text-xs text-slate-400">${card.name} • ${cardStatus}</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">${adviceDetail}</p>
+        `;
+        interpretationCards.appendChild(cardDiv);
+      });
+
+      overallAdvice.innerText = `針對你的提問：「${currentReadingData.question}」，牌陣給予的綜合指引為：${compositeAdviceText.join(' ')} 保持沉著與覺察，將能順利通往屬於你的心靈答案。`;
+
+      resultSection.classList.remove('hidden');
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+      playSingingBowlSound(528, 2.5); // Solfeggio 528Hz frequency
+    }
+
+    /* ==========================================================================
+       7. LocalStorage Journal History System
+       ========================================================================== */
+    function saveCurrentReading() {
+      if (!currentReadingData) return;
+
+      let journalHistory = JSON.parse(localStorage.getItem('mystic_tarot_journal') || '[]');
+      journalHistory.unshift(currentReadingData);
+      localStorage.setItem('mystic_tarot_journal', JSON.stringify(journalHistory));
+
+      updateJournalBadge();
+      alert('✨ 成功將本次占卜紀錄儲存至個人日誌！');
+    }
+
+    function updateJournalBadge() {
+      const journalHistory = JSON.parse(localStorage.getItem('mystic_tarot_journal') || '[]');
+      const badge = document.getElementById('journalCountBadge');
+      if (journalHistory.length > 0) {
+        badge.innerText = journalHistory.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function toggleJournalDrawer(show) {
+      const drawer = document.getElementById('journalDrawer');
+      if (show) {
+        renderJournalList();
+        drawer.classList.remove('hidden');
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function renderJournalList() {
+      const listContainer = document.getElementById('journalList');
+      const journalHistory = JSON.parse(localStorage.getItem('mystic_tarot_journal') || '[]');
+
+      if (journalHistory.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center text-slate-500 py-10 text-xs">
+            目前尚無歷史紀錄。<br>進行占卜後點擊「儲存至占卜日誌」即可記錄！
+          </div>
+        `;
+        return;
+      }
+
+      listContainer.innerHTML = journalHistory.map((item, idx) => `
+        <div class="p-4 rounded-xl glass-card border border-mystic-gold/20 space-y-2">
+          <div class="flex items-center justify-between text-[10px] text-mystic-gold/70">
+            <span>${item.date}</span>
+            <span>${item.cards.length} 張牌陣</span>
+          </div>
+          <h5 class="font-bold text-sm text-slate-200">「${item.question}」</h5>
+          <div class="flex flex-wrap gap-1">
+            ${item.cards.map(c => `<span class="px-2 py-0.5 rounded bg-mystic-700/60 text-[10px] text-slate-300">${c.name} (${c.isReversed ? '逆' : '正'})</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearJournalHistory() {
+      if (confirm('確定要清空所有占卜紀錄嗎？此動作無法復原。')) {
+        localStorage.removeItem('mystic_tarot_journal');
+        renderJournalList();
+        updateJournalBadge();
+      }
+    }
+
+    /* ==========================================================================
+       8. Modal UI Controls
+       ========================================================================== */
+    function togglePRDModal(show) {
+      const modal = document.getElementById('prdModal');
+      if (show) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    // Initialize UI Badges
+    updateJournalBadge();
+  </script>
+</body>
+</html>
